@@ -451,6 +451,21 @@
     if (navigator.vibrate) navigator.vibrate(pattern);
   }
 
+  var wakeLock = null;
+  function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function (lock) {
+      wakeLock = lock;
+      wakeLock.addEventListener('release', function () { wakeLock = null; });
+    }).catch(function () { /* e.g. tab not visible; ignore */ });
+  }
+  function releaseWakeLock() {
+    if (wakeLock) wakeLock.release();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && running) requestWakeLock();
+  });
+
   function currentPhase() { return phases[phaseIndex]; }
 
   function setAccent(type) {
@@ -558,6 +573,7 @@
   function finish() {
     running = false;
     completed = true;
+    releaseWakeLock();
     setAccent('rest');
     phaseLabel.textContent = '完了';
     setOf.textContent = '';
@@ -585,12 +601,14 @@
     lastFrameTime = null;
     startBtn.textContent = '一時停止';
     runInterval();
+    requestWakeLock();
   }
 
   function pause() {
     running = false;
     if (intervalId) { clearInterval(intervalId); intervalId = null; }
     startBtn.textContent = 'スタート';
+    releaseWakeLock();
   }
 
   function toggle() {
